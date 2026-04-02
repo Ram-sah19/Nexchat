@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Secure E2EE Chat</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="auth-container">
+    <div class="card">
+      <div class="logo-wrapper">
+        <i class="ph-fill ph-shield-check text-gradient"></i>
+      </div>
+      <h2>Secure Chat</h2>
+      <p class="subtitle">End-to-End Encrypted</p>
+      
+      <div id="auth-error" class="hidden error-msg"></div>
+
+      <div class="input-group">
+        <i class="ph ph-user"></i>
+        <input type="text" id="username" placeholder="Username" autocomplete="off">
+      </div>
+      <div class="input-group">
+        <i class="ph ph-lock-key"></i>
+        <input type="password" id="password" placeholder="Password" autocomplete="off">
+      </div>
+      
+      <div class="actions">
+        <button id="login-btn" class="primary-btn">
+          <span>Login</span> <i class="ph-bold ph-arrow-right"></i>
+        </button>
+        <button id="register-btn" class="secondary-btn">Register</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-container" class="hidden">
+    <div class="sidebar">
+      <div class="user-profile">
+        <div class="user-info">
+          <div class="avatar"><i class="ph-fill ph-user-circle"></i></div>
+          <span id="current-username"></span>
+        </div>
+        <button id="logout-btn" class="icon-btn" title="Logout">
+          <i class="ph-bold ph-sign-out"></i>
+        </button>
+      </div>
+      <h3>Online Users</h3>
+      <ul id="user-list">
+        <!-- Online users will appear here -->
+      </ul>
+    </div>
+    
+    <div class="chat-area">
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <div class="avatar"><i class="ph-fill ph-user-circle"></i></div>
+          <h3 id="chat-with-header">Select a user to chat</h3>
+        </div>
+        <button id="verify-contact-btn" class="small-btn hidden">
+          <i class="ph-bold ph-fingerprint"></i> Verify Identity
+        </button>
+      </div>
+      
+      <div class="message-list" id="message-list">
+        <!-- Messages will appear here -->
+      </div>
+      
+      <div id="typing-indicator" class="hidden" style="padding: 5px 20px; font-size: 12px; font-style: italic; color: var(--text-muted); background: var(--bg-color);"></div>
+
+      <div class="message-input-area">
+        <div class="input-wrapper">
+          <input type="text" id="message-input" placeholder="Type an encrypted message..." disabled>
+          <button id="send-btn" disabled>
+            <i class="ph-bold ph-paper-plane-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="verify-modal" class="hidden modal-overlay">
+    <div class="modal card">
+      <div class="modal-header">
+        <h3><i class="ph-bold ph-shield-check"></i> Verify Identity</h3>
+      </div>
+      <p class="subtitle" style="margin-top: 10px;">Compare these fingerprints out-of-band to prevent MITM attacks.</p>
+      
+      <div style="margin: 20px 0; text-align: left;">
+        <p style="color: var(--text-muted); font-size: 12px; margin-bottom: 5px;">Your Fingerprint:</p>
+        <div id="my-fingerprint" style="font-family: monospace; word-break: break-all; background: var(--bg-color); padding: 10px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 12px;">Loading...</div>
+      </div>
+      
+      <div style="text-align: left; margin-bottom: 20px;">
+        <p id="their-fingerprint-label" style="color: var(--text-muted); font-size: 12px; margin-bottom: 5px;">Their Fingerprint:</p>
+        <div id="their-fingerprint" style="font-family: monospace; word-break: break-all; background: var(--bg-color); padding: 10px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 12px;">Loading...</div>
+      </div>
+      
+      <button id="close-verify-btn" class="primary-btn">Close</button>
+    </div>
+  </div>
+
+  <!-- Crypto utilities -->
+  <script src="crypto.js"></script>
+  <!-- Application logic -->
+  <script src="app.js"></script>
+</body>
+</html>
