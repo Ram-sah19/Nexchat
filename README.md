@@ -1,6 +1,6 @@
 # 🔐 NexChat — End-to-End Encrypted Chat Application
 
-> A production-ready, fully End-to-End Encrypted (E2EE) real-time chat system built with Python (Flask), Java (WebSocket), and vanilla JavaScript — powered by **ECDH + AES-GCM** cryptography via the browser's native WebCrypto API. Features a complete **friend request system** with live WebSocket notifications.
+> A production-ready, fully End-to-End Encrypted (E2EE) real-time chat system built with **Python (Flask)**, **Java (WebSocket)**, and **vanilla JavaScript** — powered by **ECDH + AES-GCM** cryptography via the browser's native WebCrypto API. Features a complete **friend request system**, **live WebSocket notifications**, and a clean **MVC architecture** on the frontend.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Nexchat-181717?style=flat-square&logo=github)](https://github.com/Ram-sah19/Nexchat)
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
@@ -12,16 +12,15 @@
 ## 📋 Table of Contents
 
 - [Overview](#-overview)
-- [What's New](#-whats-new)
 - [Architecture](#️-architecture)
+- [Frontend MVC Structure](#-frontend-mvc-structure)
 - [Friend System](#-friend-system)
 - [Cryptographic Algorithms](#-cryptographic-algorithms)
 - [Full Message Encryption Flow](#-full-message-encryption-flow)
-- [Project Structure](#-project-structure)
 - [Tech Stack](#️-tech-stack)
 - [Prerequisites](#-prerequisites)
 - [Installation & Setup](#-installation--setup)
-- [Running the Servers](#-running-the-servers)
+- [Running the App](#-running-the-app)
 - [MongoDB Setup & Indexes](#-mongodb-setup--indexes)
 - [API Reference](#-api-reference)
 - [WebSocket Events](#-websocket-events)
@@ -41,74 +40,48 @@ NexChat is a fully E2EE chat application where:
 - Passwords are stored using **bcrypt** with salting.
 - **Users must be friends before they can chat** — enforced at both the frontend and Java server level.
 - **Live real-time notifications**: friend requests and accepts arrive instantly without page refresh.
-
-This architecture is similar to how **Signal Protocol** works — the server is a blind relay.
-
----
-
-## ✨ What's New
-
-### 🤝 Friend Request System
-A complete social graph layer sits on top of the E2EE chat:
-
-| Feature | Description |
-|---|---|
-| **Add Friend** | Send a friend request from the "All Users" discovery panel |
-| **Live 🔔 Alert** | If the target is online, they receive an instant WebSocket notification — no refresh |
-| **Accept / Decline** | Incoming requests appear in a notification panel in the sidebar |
-| **Friendship Activated** | On accept, Java fires `friendship_activated` to **both** users simultaneously — both UIs update live |
-| **Unfriend** | Remove a friend at any time; Java blocks their messages immediately |
-| **Security Guard** | Java WebSocket server verifies friendship in MongoDB before delivering any message |
-| **Polling Safety Net** | Every 5 seconds, the client compares local state with MongoDB — catches any missed WS events |
-
-### 🔑 Cross-Device Key Persistence
-Private keys are stored **encrypted on the server** (encrypted with your password via PBKDF2) — message history is decryptable on any device.
-
-### 🗂️ Sidebar Redesign
-- **My Friends** — click to open chat (only friends can chat)
-- **All Users** — discover and add anyone registered in the system
-- **Friend Requests panel** — live incoming request notifications with Accept / Decline
+- The client follows a strict **MVC pattern** — state, DOM, and logic are fully separated.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      CLIENT (Browser)                         │
-│                                                               │
-│  ┌──────────────────┐        ┌───────────────────────────┐   │
-│  │  auth + friends  │        │  chat + social WS relay   │   │
-│  │  (REST API)      │        │  (WebSocket)              │   │
-│  └────────┬─────────┘        └──────────────┬────────────┘   │
-└───────────┼─────────────────────────────────┼───────────────-┘
-            │ HTTP                             │ WebSocket (ws://)
-            ▼                                  ▼
-┌───────────────────────┐       ┌──────────────────────────────┐
-│   Python / Flask      │       │   Java WebSocket Server      │
-│   (Port 5000)         │       │   (Port 5001)                │
-│                       │       │                              │
-│  - /auth/register     │       │  - JWT verification          │
-│  - /auth/login        │       │  - Public key exchange       │
-│  - /friends/request   │       │  - E2EE message relay        │
-│  - /friends/accept    │       │  - Friend guard (areFriends) │
-│  - /friends/reject    │       │  - Social event relay:       │
-│  - /friends/remove    │       │    friend_request_sent       │
-│  - /friends/status    │       │    friendship_activated      │
-│  - Serves client HTML │       │    friend_removed            │
-└───────────┬───────────┘       └──────────────┬───────────────┘
-            │                                  │
-            └────────────────┬─────────────────┘
-                             ▼
-                  ┌─────────────────────┐
-                  │      MongoDB        │
-                  │    (Port 27017)     │
-                  │                    │
-                  │  Collections:      │
-                  │  - users           │
-                  │  - messages        │
-                  │  - friend_requests │
-                  └─────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                        CLIENT (Browser — MVC)                         │
+│                                                                        │
+│  ┌──────────────────────┐       ┌──────────────────────────────────┐  │
+│  │  auth + friend REST  │       │  chat + social WebSocket relay   │  │
+│  │  (FriendController)  │       │  (SocketController)              │  │
+│  └──────────┬───────────┘       └────────────────┬─────────────────┘  │
+└─────────────┼────────────────────────────────────┼────────────────────┘
+              │ HTTP (REST)                         │ WebSocket (ws://)
+              ▼                                     ▼
+┌─────────────────────────┐       ┌─────────────────────────────────────┐
+│   Python / Flask        │       │   Java WebSocket Server             │
+│   (Port 5000)           │       │   (Port 5001)                       │
+│                         │       │                                     │
+│  /auth/register         │       │  JWT verification on connect        │
+│  /auth/login            │       │  Public key storage (session)       │
+│  /friends/status        │       │  E2EE message relay                 │
+│  /friends/request       │       │  Friend guard (areFriends check)    │
+│  /friends/accept        │       │  Social event relay:                │
+│  /friends/reject        │       │    friend_request_sent →            │
+│  /friends/remove        │       │    new_friend_request               │
+│  Serves client files    │       │    friend_request_accepted →        │
+└──────────────┬──────────┘       │    friendship_activated (×2)        │
+               │                  │    friend_removed_notify →          │
+               └──────────────────│    friend_removed                   │
+                                  └──────────────┬──────────────────────┘
+                                                 │
+                                  ┌──────────────▼──────────────────────┐
+                                  │           MongoDB                    │
+                                  │         (Port 27017)                 │
+                                  │  Collections:                        │
+                                  │  • users           (auth + keys)     │
+                                  │  • messages        (encrypted blobs) │
+                                  │  • friend_requests (social graph)    │
+                                  └─────────────────────────────────────┘
 ```
 
 | Layer | Technology | Port | Role |
@@ -116,7 +89,69 @@ Private keys are stored **encrypted on the server** (encrypted with your passwor
 | Auth + Friend API | Python / Flask | **5000** | Register, Login, JWT, Friend CRUD |
 | Chat + Relay | Java / WebSocket | **5001** | E2EE relay, friend guard, live social events |
 | Database | MongoDB | **27017** | Users, encrypted messages, friendships |
-| Client | Vanilla JS / WebCrypto | (served by Flask) | Crypto, UI, WS relay |
+| Client | Vanilla JS / WebCrypto | (served by Flask) | MVC app — Crypto, UI, WS relay |
+
+---
+
+## 📐 Frontend MVC Structure
+
+The entire client is split across **11 files** following strict MVC separation. No layer may cross into another's responsibility.
+
+```
+client/
+  index.html                      ← HTML shell (no logic)
+  style.css                       ← Warm glassmorphism design system
+  crypto.js                       ← Global WebCrypto helpers (ECDH, AES-GCM, PBKDF2)
+  app.js                          ← Entry point: instantiate + wire (≈50 lines)
+  
+  models/                         ── PURE STATE, no DOM, no fetch, no WebSocket
+    AuthModel.js                  ← token, username, isLoggedIn, authHeader getter
+    UserModel.js                  ← friends[], pendingSent[], pendingReceived[], online set
+    ChatModel.js                  ← activeChatUser, sharedKeys{}, ECDH keypair, reqId map
+  
+  views/                          ── DOM ONLY, no business logic
+    AuthView.js                   ← login/register form, showChat/showAuth transitions
+    SidebarView.js                ← renderAllUsers, renderFriendsList, renderFriendRequests
+    ChatView.js                   ← appendMessage (grouped), setChatUser, setInputEnabled
+    ToastView.js                  ← show(message, type) with rAF fade animation
+  
+  controllers/                    ── ORCHESTRATION: use models + views + APIs
+    SocketController.js           ← WebSocket lifecycle, send(), event dispatcher
+    FriendController.js           ← 5 REST actions, WS relay, 5s polling safety net
+    ChatController.js             ← initCrypto, key exchange, selectUser, sendMessage
+    AuthController.js             ← login, register, logout, sidebar collapse, polling
+```
+
+### Dependency Graph
+
+```
+        AuthController
+        ┌──────┬──────┬─────────────┐
+        ▼      ▼      ▼             │
+  SocketCtrl  ChatCtrl  FriendCtrl  │
+      │    ◄──────┘   ◄────────────┘
+      │         └── share: AuthModel, UserModel, ChatModel
+      │         └── share: AuthView, SidebarView, ChatView, ToastView
+      ▼
+  (WebSocket → Java Server)
+```
+
+**Circular dependencies** are resolved via post-construction `wire()` calls in `app.js`:
+```js
+socketCtrl.wire({ chatCtrl, friendCtrl, authCtrl, ... });
+chatCtrl.wire(socketCtrl, friendCtrl);
+friendCtrl.wire(socketCtrl, chatCtrl);
+authCtrl.wire(socketCtrl, chatCtrl, friendCtrl);
+```
+
+### Layer Rules
+
+| Layer | Can Access | Cannot Access |
+|---|---|---|
+| **Model** | Pure data only | DOM, fetch, WebSocket |
+| **View** | DOM elements via IDs | Models, controllers, fetch |
+| **Controller** | Models + Views + fetch/WS | Sibling controllers directly (use wired refs) |
+| **app.js** | Everything (for wiring only) | Business logic |
 
 ---
 
@@ -125,196 +160,139 @@ Private keys are stored **encrypted on the server** (encrypted with your passwor
 ### Flow Overview
 
 ```
-Step 1 — Alice clicks "Add Friend" on Bob
-  ├─ Frontend → POST /friends/request  (Python saves { sender, receiver, status: "pending" })
-  ├─ Frontend → WS: { type: "friend_request_sent", to: "Bob" }
-  └─ Java relays to Bob (if online): { type: "new_friend_request", from: "Alice" }
-       └─ Bob's UI: 🔔 toast + request appears in notification panel
+Step 1 — Alice clicks "+ Add" on Bob
+  ├─ Frontend → POST /friends/request    (Python saves status: "pending")
+  ├─ FriendController mutates UserModel
+  ├─ FriendController → WS: { type: "friend_request_sent", to: "Bob" }
+  └─ Java relays to Bob: { type: "new_friend_request", from: "Alice" }
+       └─ SocketController → UserModel.addPendingReceived("Alice")
+       └─ SidebarView.renderFriendRequests() — live notification panel ✅
 
 Step 2 — Bob clicks "Accept"
-  ├─ Frontend → POST /friends/accept  (Python sets status → "accepted")
-  ├─ Frontend → WS: { type: "friend_request_accepted", to: "Alice" }
-  └─ Java fires to BOTH simultaneously:
-       Alice: { type: "friendship_activated", with: "Bob" }   → Bob moves to "My Friends"
-       Bob:   { type: "friendship_activated", with: "Alice" } → Alice moves to "My Friends"
+  ├─ Frontend → POST /friends/accept     (Python sets status: "accepted")
+  ├─ FriendController → WS: { type: "friend_request_accepted", to: "Alice" }
+  └─ Java fires `friendship_activated` to BOTH simultaneously:
+       Alice: { type: "friendship_activated", with: "Bob" }
+       Bob:   { type: "friendship_activated", with: "Alice" }
+       └─ Both SocketControllers → UserModel.addFriend() → SidebarView re-render ✅
 
 Step 3 — Chatting
-  └─ Java checks areFriends(sender, receiver) in MongoDB before every message
-       ✅ Friends   → message delivered
-       ❌ Not friends → { type: "error", message: "You must be friends to chat!" }
+  └─ Java ChatServer.areFriends() checks MongoDB before every message
+       ✅ Friends   → message relayed
+       ❌ Not friends → { type: "error" } blocked live
 
 Step 4 — Unfriend
-  ├─ Frontend → POST /friends/remove  (Python deletes friendship document)
-  ├─ Frontend → WS: { type: "friend_removed_notify", to: "Bob" }
-  └─ Java relays to Bob: { type: "friend_removed", from: "Alice" }
-       └─ Bob's UI updates live; Java immediately starts blocking messages
+  ├─ Frontend → POST /friends/remove     (Python deletes document)
+  ├─ FriendController → WS: { type: "friend_removed_notify", to: "Bob" }
+  └─ Java relays: { type: "friend_removed", from: "Alice" }
+       └─ Bob's UI closes the open chat + Java immediately blocks new messages ✅
+
+Safety Net: Every 5 seconds FriendController polls /friends/status
+  └─ If state drifted (missed WS event), auto-syncs and re-renders silently
 ```
 
-### MongoDB Schema — `friend_requests` Collection
+### MongoDB Schema — `friend_requests`
 
 ```json
 {
+  "_id":      "ObjectId(...)",
   "sender":   "alice",
   "receiver": "bob",
-  "status":   "pending"   // → "accepted" | "rejected"
+  "status":   "pending"
 }
 ```
+Status transitions: `pending` → `accepted` | `rejected`  
+On unfriend: document is **deleted** (not soft-deleted).
 
 ---
 
 ## 🔐 Cryptographic Algorithms
 
-### 1. ECDH — P-256 (Key Exchange)
-**File:** `client/crypto.js`
-
+### 1. ECDH P-256 — Key Exchange (`crypto.js`)
 ```js
 const ecdhParams = { name: "ECDH", namedCurve: "P-256" };
-localKeyPair = await crypto.subtle.generateKey(ecdhParams, true, ["deriveKey", "deriveBits"]);
+const keyPair = await crypto.subtle.generateKey(ecdhParams, true, ["deriveKey", "deriveBits"]);
 ```
+- Each user generates a P-256 ECDH key pair in the browser on first login.
+- **Public key** → stored on server (MongoDB + registered in Java session on `join`).
+- **Private key** → never leaves the browser (cached in `localStorage` + server backup encrypted with PBKDF2).
+- Shared secret: `Alice_priv + Bob_pub = Bob_priv + Alice_pub` → becomes the **AES-GCM key**.
 
-- Each user generates a **P-256 ECDH key pair** in the browser on first login.
-- **Public key** → shared with the server (stored in MongoDB).
-- **Private key** → never transmitted; stored in `localStorage` AND backed up encrypted on the server.
-- When Alice chats with Bob: `Alice_priv + Bob_pub → sharedSecret = Bob_priv + Alice_pub`
-- The shared secret becomes the **AES-GCM encryption key**.
-
-> **Why ECDH over RSA?** P-256 ECDH gives equivalent security to RSA-3072 with far smaller key sizes and faster computation — ideal for real-time chat.
-
----
-
-### 2. AES-GCM 256-bit (Message Encryption)
-**File:** `client/crypto.js`
-
+### 2. AES-GCM 256-bit — Message Encryption (`crypto.js`)
 ```js
-const iv = crypto.getRandomValues(new Uint8Array(12)); // fresh random IV per message
+const iv         = crypto.getRandomValues(new Uint8Array(12)); // fresh per message
 const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, sharedKey, encoded);
 ```
+- **Authenticated encryption (AEAD)** — provides both confidentiality and integrity.
+- **Fresh 12-byte random IV per message** — prevents IV-reuse attacks.
+- Server stores only `ciphertext[]` + `iv[]` byte arrays — cannot decrypt them.
 
-- **AES-GCM (Galois/Counter Mode)** with a **256-bit key**.
-- GCM provides both **encryption and authentication** (AEAD) — messages cannot be tampered with without detection.
-- A **fresh random 12-byte IV** is generated for **every single message**, preventing IV-reuse attacks.
-- `ciphertext` + `iv` are stored in MongoDB as byte arrays — the server cannot decrypt them.
-
----
-
-### 3. HMAC-SHA256 (JWT Authentication)
-**File:** `server-python/app.py` + `server-java/ChatServer.java`
-
+### 3. HMAC-SHA256 — JWT Auth
 ```python
-# Python — issues token after login
-token = jwt.encode({'id': ..., 'username': ..., 'exp': now + 10h}, JWT_SECRET, algorithm='HS256')
+# Python: issues token on login
+token = jwt.encode({ 'username': ..., 'exp': now + 10h }, JWT_SECRET, algorithm='HS256')
 ```
 ```java
-// Java — verifies token on every WebSocket connection
+// Java: verifies token on every WebSocket connect
 DecodedJWT jwt = JWT.require(Algorithm.HMAC256(JWT_SECRET)).build().verify(token);
 ```
 
-- JWT is passed as a WebSocket query parameter: `ws://localhost:5001/?token=<JWT>`
-- Valid for **10 hours**.
-
----
-
-### 4. bcrypt (Password Hashing)
-**File:** `server-python/app.py`
-
+### 4. bcrypt — Password Hashing
 ```python
 hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
 ```
-
-- Passwords never stored in plaintext.
-- Random salt per user — identical passwords produce different hashes.
+- Salted per user — identical passwords produce different hashes.
 - Computationally expensive by design — resists brute-force.
 
----
-
-### 5. PBKDF2 + AES-GCM (Private Key Encryption for Cross-Device Access)
-**File:** `client/crypto.js`
-
+### 5. PBKDF2 + AES-GCM — Private Key Backup (Cross-Device)
 ```js
-// Derive an AES key from the user's password
 const aesKey = await crypto.subtle.deriveKey(
   { name: "PBKDF2", salt: enc.encode(username + "_salt"), iterations: 100000, hash: "SHA-256" },
-  keyMaterial, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+  await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]),
+  { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
 );
-// Encrypt the private key JWK with this derived key → store on server
 ```
+- Private key is encrypted **client-side** with a key derived from the user's password before being sent to the server.
+- The server **cannot decrypt it** without the password — enables cross-device key recovery.
 
-- Private key is encrypted client-side before being sent to the server.
-- The server **cannot decrypt it without the user's password**.
-- Enables key recovery on new devices without re-generating keys (which would break history).
-
----
-
-### 6. SHA-256 (Key Fingerprinting)
-**File:** `client/crypto.js`
-
+### 6. SHA-256 — Key Fingerprinting
 ```js
-const hashBuffer = await crypto.subtle.digest('SHA-256', enc.encode(JSON.stringify(jwk)));
-// → "A3:F2:91:..." (like SSH fingerprints)
+const hash = await crypto.subtle.digest('SHA-256', enc.encode(JSON.stringify(pubKeyJwk)));
+// → "A3:F2:91:..." (TOFU identity verification)
 ```
-
-- Deterministic fingerprint of any user's public key.
-- Used for identity verification (**TOFU — Trust On First Use**).
 
 ---
 
 ## 🔄 Full Message Encryption Flow
 
 ```
-[Alice]                          [Server]                       [Bob]
-   │                                │                              │
-   │── Login ──────────────────────►│                              │
-   │◄─ JWT + encrypted private key ─│                              │
-   │                                │                              │
-   │── Generate / restore ECDH keys │                              │
-   │── WS connect (?token=JWT) ────►│                              │
-   │── join { publicKey: Alice_pub }►│── store Alice_pub in MongoDB │
-   │                                │                              │
-   │── friend_request_sent {to:Bob}►│── relay to Bob: new_friend_request
-   │                                │◄── Bob accepts ──────────────│
-   │                                │── friendship_activated → Alice + Bob
-   │                                │                              │
-   │── request_public_key(Bob) ────►│                              │
-   │◄─ Bob_pub ─────────────────────│                              │
-   │                                │                              │
-   │── deriveSharedKey(Alice_priv, Bob_pub) → sharedKey            │
-   │── encryptMessage(sharedKey, "Hello Bob!")                     │
-   │   → { ciphertext: [...], iv: [...] }                          │
-   │                                │                              │
-   │── send_message{receiver:Bob} ─►│── areFriends? ✅             │
-   │                                │── save to MongoDB ─────────  │
-   │                                │── relay to Bob ──────────────►
-   │                                │                              │
-   │                                │         decryptMessage(sharedKey, ciphertext, iv)
-   │                                │                    → "Hello Bob!" ✅
+[Alice — Browser]               [Java Server]              [Bob — Browser]
+       │                              │                            │
+       │── login (REST) ────────────►│                            │
+       │◄─ JWT + encrypted priv key ─│                            │
+       │── ChatController.initCrypto()                            │
+       │   restore ECDH keys from localStorage / server           │
+       │                              │                            │
+       │── WS connect ?token=JWT ───►│                            │
+       │── join { publicKey } ──────►│── store Alice_pub in DB   │
+       │                              │◄── Bob does the same ─────│
+       │                              │                            │
+       │── friend_request_sent ─────►│── new_friend_request ────►│
+       │                              │◄── friend_request_accepted│
+       │                              │── friendship_activated ──►│ (both)
+       │                              │                            │
+       │── request_public_key(Bob) ──►│                           │
+       │◄─ Bob_pub ──────────────────│                            │
+       │── deriveSharedKey(Alice_priv, Bob_pub) → aesKey          │
+       │── encryptMessage(aesKey, "Hello") → { ciphertext, iv }   │
+       │── send_message ────────────►│── areFriends? ✅           │
+       │                              │── save to MongoDB          │
+       │                              │── relay to Bob ───────────►│
+       │                              │       decryptMessage(aesKey, ciphertext, iv)
+       │                              │                   → "Hello" ✅
 ```
 
-**The server at no point has access to the plaintext message.**
-
----
-
-## 📁 Project Structure
-
-```
-nexchat/
-├── client/                     # Frontend (served by Flask at port 5000)
-│   ├── index.html              # App shell — auth screen + split sidebar chat layout
-│   ├── app.js                  # Auth, WebSocket, friend system, chat logic, polling
-│   ├── crypto.js               # ECDH + AES-GCM + PBKDF2 + SHA-256 implementation
-│   └── style.css               # Glassmorphism dark UI with friend system components
-│
-├── server-python/              # Auth + Friend API Server
-│   ├── app.py                  # Flask REST API (auth + 5 friend endpoints)
-│   ├── requirements.txt        # Python dependencies
-│   └── .env                    # MONGO_URI, JWT_SECRET
-│
-└── server-java/                # Chat / WebSocket / Social Relay Server
-    ├── pom.xml                 # Maven build config
-    └── src/main/java/chat/
-        ├── Main.java           # Entry point (port 5001)
-        └── ChatServer.java     # JWT verify, E2EE relay, friend guard, social relay
-```
+**The server has zero access to plaintext at any step.**
 
 ---
 
@@ -322,89 +300,75 @@ nexchat/
 
 | Component | Technology |
 |-----------|-----------|
-| Auth + Friend API | Python 3, Flask, Flask-CORS |
-| Chat + Social Relay | Java 11, Java-WebSocket (TooTallNate) |
-| Database | MongoDB |
-| Client Crypto | Browser WebCrypto API (`crypto.subtle`) |
-| Auth Tokens | JWT (PyJWT + auth0 java-jwt) |
-| Password Hashing | bcrypt |
-| Key Backup | PBKDF2-derived AES-GCM encryption |
-| Build Tool (Java) | Apache Maven + maven-shade-plugin |
-| Key Exchange | ECDH P-256 |
-| Message Encryption | AES-GCM 256-bit |
-| UI Icons | Phosphor Icons |
-| Fonts | Inter (Google Fonts) |
+| Auth + Friend API | Python 3, Flask, Flask-CORS, PyMongo, PyJWT, bcrypt |
+| Chat + Relay | Java 11, Java-WebSocket (TooTallNate), auth0 java-jwt |
+| Database | MongoDB 6+ |
+| Client Architecture | Vanilla JS MVC (11 files, no framework) |
+| Cryptography | Browser WebCrypto API (`crypto.subtle`) |
+| UI | Warm Glassmorphism (Inter font, Phosphor Icons) |
+| Build | Apache Maven + maven-shade-plugin |
 
 ---
 
 ## ✅ Prerequisites
 
-- **Python 3.8+**
-- **Java 11+**
-- **Apache Maven 3.6+**
-- **MongoDB** running on `localhost:27017`
+| Tool | Version |
+|---|---|
+| Python | 3.8+ |
+| Java | 11+ |
+| Apache Maven | 3.6+ |
+| MongoDB | 6+ running on `localhost:27017` |
 
 ---
 
 ## 📦 Installation & Setup
 
-### Python Server
-
+### 1. Python Server
 ```bash
 cd server-python
 pip install -r requirements.txt
 ```
 
-**`requirements.txt`:**
-```
-flask
-flask-cors
-pymongo
-bcrypt
-PyJWT
-python-dotenv
-```
-
-**`.env` file:**
+**`.env` file** (create in `server-python/`):
 ```env
-MONGO_URI=MONGO_URI
-JWT_SECRET=JWT_SECRET
+MONGO_URI=mongodb://localhost:27017/securechat
+JWT_SECRET=your-secret-key-here
 ```
 
-### Java Server
-
+### 2. Java Server
 ```bash
 cd server-java
 mvn clean package
 ```
+Produces a fat JAR at `target/server-java-1.0-SNAPSHOT.jar`.
 
-This produces `server-java/target/server-java-1.0-SNAPSHOT.jar` — a fat JAR with all dependencies.
+> ⚠️ **Always rebuild after editing `ChatServer.java`** — the running JAR will not pick up source changes automatically.
 
 ---
 
-## 🚀 Running the Servers
+## 🚀 Running the App
 
-### Step 1 — Start MongoDB
+### Step 1 — MongoDB
 ```bash
 mongosh
 ```
 
-### Step 2 — Create Indexes (run once in mongosh)
+### Step 2 — Create Indexes (one-time setup)
 ```js
 use securechat
 db.friend_requests.createIndex({ sender: 1, receiver: 1 })
 db.friend_requests.createIndex({ receiver: 1, status: 1 })
-db.friend_requests.createIndex({ status: 1 })
+db.messages.createIndex({ sender: 1, receiver: 1, timestamp: 1 })
 ```
 
-### Step 3 — Start Python Auth + Friend API (Terminal 1)
+### Step 3 — Python Server (Terminal 1)
 ```bash
 cd server-python
 python app.py
 # → http://localhost:5000
 ```
 
-### Step 4 — Start Java WebSocket Server (Terminal 2)
+### Step 4 — Java WebSocket Server (Terminal 2)
 ```bash
 cd server-java
 java -jar target\server-java-1.0-SNAPSHOT.jar
@@ -412,34 +376,24 @@ java -jar target\server-java-1.0-SNAPSHOT.jar
 ```
 
 ### Step 5 — Open the App
-Navigate to: **http://localhost:5000**
+Navigate to **http://localhost:5000**
 
 ---
 
 ## 🗄️ MongoDB Setup & Indexes
 
-### Verify Data
 ```js
 use securechat
 
 // Check users
-db.users.find({}, { username: 1, publicKey: 1 }).pretty()
+db.users.find({}, { username: 1, _id: 0 }).pretty()
 
-// Check friend requests
+// Check friend relationships
 db.friend_requests.find().pretty()
-// Expected: { sender: "alice", receiver: "bob", status: "pending" | "accepted" }
 
-// Check messages (encrypted blobs — server cannot read these)
-db.messages.find().pretty()
-```
-
-### Recommended Indexes
-```js
-// Friend request lookups (run once)
+// Recommended indexes
 db.friend_requests.createIndex({ sender: 1, receiver: 1 })
 db.friend_requests.createIndex({ receiver: 1, status: 1 })
-
-// Message history lookups
 db.messages.createIndex({ sender: 1, receiver: 1, timestamp: 1 })
 ```
 
@@ -447,31 +401,22 @@ db.messages.createIndex({ sender: 1, receiver: 1, timestamp: 1 })
 
 ## 📡 API Reference
 
-### Auth Endpoints (Python — Port 5000)
+### Auth (Python — Port 5000)
 
-#### `POST /auth/register`
-```json
-Request:  { "username": "alice", "password": "secret123", "publicKey": {JWK}, "encryptedPrivateKey": {...} }
-Response: { "msg": "User created successfully" }
-```
+| Method | Endpoint | Body | Response |
+|--------|----------|------|----------|
+| `POST` | `/auth/register` | `{ username, password, publicKey, encryptedPrivateKey }` | `{ msg }` |
+| `POST` | `/auth/login` | `{ username, password }` | `{ token, username, publicKey, encryptedPrivateKey }` |
 
-#### `POST /auth/login`
-```json
-Request:  { "username": "alice", "password": "secret123" }
-Response: { "token": "<JWT>", "username": "alice", "publicKey": {JWK}, "encryptedPrivateKey": {...} }
-```
+### Friend System (Python — Port 5000, JWT Required)
 
----
-
-### Friend Endpoints (Python — Port 5000, JWT Required)
-
-| Endpoint | Method | Body | Description |
-|---|---|---|---|
-| `/friends/status` | GET | — | Returns `friends[]`, `pending_sent[]`, `pending_received[]` |
-| `/friends/request` | POST | `{ receiver }` | Send a friend request |
-| `/friends/accept` | POST | `{ sender }` | Accept a pending request |
-| `/friends/reject` | POST | `{ sender }` | Decline a pending request |
-| `/friends/remove` | POST | `{ target }` | Unfriend — deletes from MongoDB |
+| Method | Endpoint | Body | Description |
+|--------|----------|------|-------------|
+| `GET`  | `/friends/status` | — | Returns `friends[]`, `pending_sent[]`, `pending_received[]` |
+| `POST` | `/friends/request` | `{ receiver }` | Send a friend request |
+| `POST` | `/friends/accept`  | `{ sender }` | Accept a pending request |
+| `POST` | `/friends/reject`  | `{ sender }` | Decline a pending request |
+| `POST` | `/friends/remove`  | `{ target }` | Unfriend — deletes from MongoDB |
 
 #### `GET /friends/status` Response
 ```json
@@ -486,66 +431,60 @@ Response: { "token": "<JWT>", "username": "alice", "publicKey": {JWK}, "encrypte
 
 ## 🔌 WebSocket Events (Java — Port 5001)
 
-### Connection
-```
-ws://localhost:5001/?token=<JWT>
-```
-JWT is verified on connect. Invalid tokens are rejected with code `4001`.
+Connect: `ws://localhost:5001/?token=<JWT>`
 
----
+### Client → Server
 
-### Client → Server Events
+| Type | Payload | Handler |
+|------|---------|---------|
+| `join` | `{ publicKey: JWK }` | Register for session |
+| `request_public_key` | `{ receiver }` | Fetch ECDH public key |
+| `send_message` | `{ receiver, ciphertext[], iv[] }` | Send encrypted message |
+| `fetch_history` | `{ withUser }` | Retrieve chat history |
+| `friend_request_sent` | `{ to }` | Relay: ping receiver with `new_friend_request` |
+| `friend_request_accepted` | `{ to }` | Relay: fire `friendship_activated` to both users |
+| `friend_removed_notify` | `{ to }` | Relay: ping target with `friend_removed` |
 
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `join` | `{ publicKey: JWK }` | Register public key for session |
-| `request_public_key` | `{ receiver: "username" }` | Fetch another user's ECDH public key |
-| `send_message` | `{ receiver, ciphertext[], iv[] }` | Send encrypted message (blocked if not friends) |
-| `fetch_history` | `{ withUser: "username" }` | Load chat history |
-| `friend_request_sent` | `{ to: "username" }` | Relay: tell receiver a request was sent |
-| `friend_request_accepted` | `{ to: "username" }` | Relay: tell original sender it was accepted |
-| `friend_removed_notify` | `{ to: "username" }` | Relay: tell unfriended user they were removed |
+### Server → Client
 
-### Server → Client Events
-
-| Event | Payload | Description |
-|-------|---------|-------------|
-| `user_list` | `["alice", "bob", ...]` | All registered users (for "All Users" panel) |
-| `online_users` | `["alice", ...]` | Currently connected users (status dots) |
-| `public_key_response` | `{ publicKey: JWK }` | Response to key request |
-| `receive_message` | `{ sender, ciphertext[], iv[], timestamp }` | Incoming encrypted message |
-| `history_response` | `[{ sender, receiver, ciphertext[], iv[], timestamp }]` | Chat history |
-| `new_friend_request` | `{ from: "username" }` | 🔔 Live friend request alert |
-| `friendship_activated` | `{ with: "username" }` | Both users → move to "My Friends" |
-| `friend_removed` | `{ from: "username" }` | Live unfriend notification |
-| `error` | `{ message: "..." }` | Blocked message (non-friend attempt) |
+| Type | Payload | Triggered by |
+|------|---------|-------------|
+| `user_list` | `["alice", ...]` | Any connect/disconnect |
+| `online_users` | `["alice", ...]` | Any connect/disconnect |
+| `public_key_response` | `{ publicKey }` | `request_public_key` |
+| `receive_message` | `{ sender, ciphertext[], iv[], timestamp }` | `send_message` |
+| `history_response` | `[{ sender, ciphertext[], iv[], timestamp }]` | `fetch_history` |
+| `new_friend_request` | `{ from }` | 🔔 Live request alert |
+| `friendship_activated` | `{ with }` | ✅ Both UIs add each other to My Friends |
+| `friend_removed` | `{ from }` | ❌ Live unfriend notification |
+| `error` | `{ message }` | Message blocked by friend guard |
 
 ---
 
 ## 🛡️ Security Design Decisions
 
 | Design Choice | Reason |
-|--------------|--------|
+|---|---|
 | **ECDH over RSA** | Smaller keys, faster operations, equivalent security |
-| **AES-GCM over AES-CBC** | GCM provides authenticated encryption (AEAD) — prevents tampering |
-| **Fresh IV per message** | Prevents IV-reuse attacks which break AES-GCM security |
-| **Private key encrypted before server storage** | PBKDF2(password) → AES-GCM wraps private key — server never has plaintext key |
-| **bcrypt with gensalt()** | Salted hashing prevents rainbow table and duplicate-password attacks |
-| **JWT expiry (10 hours)** | Limits token exposure window |
-| **WebCrypto API** | Native, audited, hardware-accelerated browser crypto — no third-party library needed |
-| **Server stores only ciphertext** | True E2EE — server compromise does not expose message content |
-| **Friend guard in Java** | Friendship verified in MongoDB at the WebSocket layer — cannot be bypassed by the frontend |
-| **Polling safety net (5s)** | Catches missed WebSocket relay events — eventual consistency guarantee |
+| **AES-GCM over AES-CBC** | AEAD — encryption + authentication in one primitive; prevents tampering |
+| **Fresh IV per message** | Prevents IV-reuse attacks that break AES-GCM security entirely |
+| **PBKDF2 private key backup** | `PBKDF2(password)  → AES-GCM wraps private key` — server never holds plaintext key |
+| **bcrypt with gensalt()** | Salted, computationally expensive — resists rainbow tables and brute force |
+| **JWT expiry (10 hours)** | Limits token exposure window if intercepted |
+| **Browser WebCrypto API** | Native, audited, hardware-accelerated — no third-party crypto library needed |
+| **Friend guard in Java (server-side)** | Cannot be bypassed by the client — friendship verified in MongoDB before every relay |
+| **5s polling safety net** | Eventual-consistency guarantee — catches missed WS relay events silently |
+| **MVC separation** | State lives only in Models — Views never mutate state; zero spaghetti logic |
 
 ---
 
 ## ⚠️ Known Limitations
 
-- **No Perfect Forward Secrecy (PFS):** Keys are persisted (localStorage + server). A compromised private key could decrypt stored ciphertext. A production system would use ephemeral keys per session.
-- **TOFU model only:** No out-of-band key verification mechanism is implemented (fingerprint UI exists but not enforced).
-- **No message deletion / key rotation** implemented.
-- **Single server deployment:** No horizontal scaling for the Java WebSocket server.
-- **No push notifications:** Offline users see requests only after next login (the 5s poll catches it on reconnect).
+- **No Perfect Forward Secrecy (PFS):** Keys are persisted. A compromised private key could decrypt stored ciphertext. Production would use ephemeral keys per session.
+- **TOFU model only:** Key fingerprints are displayed but not enforced — no out-of-band verification flow.
+- **No message deletion or key rotation.**
+- **Single server:** No horizontal scaling for the Java WebSocket server.
+- **Offline notifications:** Users who are offline when a friend request is sent receive it only after next login (the 5s poll catches it immediately on reconnect).
 
 ---
 
@@ -556,6 +495,6 @@ This project is for educational and demonstration purposes.
 ---
 
 <div align="center">
-  <p>Built with ❤️ for Developers</p>
-  <p><strong>NexChat</strong> — Encrypted · Social · Real-Time</p>
+  <p>Built with ❤️ by <a href="https://github.com/Ram-sah19">Ram-sah19</a></p>
+  <p><strong>NexChat</strong> — Encrypted · Social · Real-Time · MVC</p>
 </div>
