@@ -53,11 +53,16 @@
       <div class="user-profile">
         <div class="user-info">
           <div class="avatar"><i class="ph-fill ph-user-circle"></i></div>
-          <span id="current-username"></span>
+          <span id="current-username" class="sidebar-text"></span>
         </div>
-        <button id="logout-btn" class="icon-btn" title="Logout">
-          <i class="ph-bold ph-sign-out"></i>
-        </button>
+        <div class="sidebar-actions">
+          <button id="collapse-btn" class="icon-btn" title="Toggle sidebar">
+            <i class="ph-bold ph-sidebar-simple"></i>
+          </button>
+          <button id="logout-btn" class="icon-btn" title="Logout">
+            <i class="ph-bold ph-sign-out"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Scrollable Sidebar Content -->
@@ -134,9 +139,27 @@
     </div>
   </div>
 
-  <!-- Crypto utilities -->
+  <!-- Crypto utilities (global helpers used by ChatController) -->
   <script src="crypto.js"></script>
-  <!-- Application logic -->
+
+  <!-- ── Models (pure state, no side effects) ── -->
+  <script src="models/AuthModel.js"></script>
+  <script src="models/UserModel.js"></script>
+  <script src="models/ChatModel.js"></script>
+
+  <!-- ── Views (DOM wrappers, no business logic) ── -->
+  <script src="views/AuthView.js"></script>
+  <script src="views/ToastView.js"></script>
+  <script src="views/ChatView.js"></script>
+  <script src="views/SidebarView.js"></script>
+
+  <!-- ── Controllers (orchestration, loaded in dependency order) ── -->
+  <script src="controllers/SocketController.js"></script>
+  <script src="controllers/FriendController.js"></script>
+  <script src="controllers/ChatController.js"></script>
+  <script src="controllers/AuthController.js"></script>
+
+  <!-- ── Entry Point (creates instances + wires dependencies) ── -->
   <script src="app.js"></script>
 </body>
 </html>
