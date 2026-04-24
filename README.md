@@ -367,8 +367,8 @@ python-dotenv
 
 **`.env` file:**
 ```env
-MONGO_URI=mongodb://localhost:27017/securechat
-JWT_SECRET=JdXw3ypy3KXjLxfRpNW2LWV4ie3WyxrzCN7YUNAAxvE
+MONGO_URI=MONGO_URI
+JWT_SECRET=JWT_SECRET
 ```
 
 ### Java Server
