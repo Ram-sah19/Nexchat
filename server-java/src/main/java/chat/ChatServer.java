@@ -164,6 +164,19 @@ public class ChatServer extends WebSocketServer {
                     handleFetchCallHistory(username, conn, payload, req.optString("reqId"));
                     break;
 
+                // ── Message Receipt Ticks ──────────────────────────────────
+                // Receiver sends these back to the original sender so the
+                // sender's UI can upgrade their tick icons (delivered / seen).
+                case "message_delivered":
+                case "message_seen":
+                    handleReceiptRelay(type, username, payload);
+                    break;
+
+                // ── Typing indicator relay ────────────────────────────────
+                case "typing":
+                    handleTypingRelay(username, payload);
+                    break;
+
                 default:
                     System.out.println("Unknown event type: " + type);
             }
@@ -402,6 +415,49 @@ public class ChatServer extends WebSocketServer {
             msg.put("payload", wsPayload);
             targetConn.send(msg.toString());
             System.out.println("LIVE: unfriend relayed " + remover + " → " + to);
+        }
+    }
+
+    // ─── Message Receipt Relay (ticks) ─────────────────────────────────────────
+
+    /**
+     * Receiver calls message_delivered / message_seen with { to: originalSender }.
+     * We relay it to the originalSender so their client updates the tick icon.
+     */
+    private void handleReceiptRelay(String signalType, String receiver, JSONObject payload) {
+        String originalSender = payload.optString("to", "");
+        if (originalSender.isEmpty()) return;
+
+        WebSocket senderConn = activeUsers.get(originalSender);
+        if (senderConn != null && senderConn.isOpen()) {
+            JSONObject msg = new JSONObject();
+            msg.put("type", signalType);
+            JSONObject wp = new JSONObject();
+            wp.put("from", receiver);   // tells sender: "this person saw your messages"
+            msg.put("payload", wp);
+            senderConn.send(msg.toString());
+        }
+    }
+
+    // ─── Typing Indicator Relay ────────────────────────────────────────────────
+
+    /**
+     * Relays { isTyping, from } to the target user.
+     * No friendship check needed — if they can chat, they can see typing status.
+     */
+    private void handleTypingRelay(String sender, JSONObject payload) {
+        String to = payload.optString("to", "");
+        if (to.isEmpty()) return;
+
+        WebSocket targetConn = activeUsers.get(to);
+        if (targetConn != null && targetConn.isOpen()) {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "typing");
+            JSONObject wp = new JSONObject();
+            wp.put("from",     sender);
+            wp.put("isTyping", payload.optBoolean("isTyping", false));
+            msg.put("payload", wp);
+            targetConn.send(msg.toString());
         }
     }
 
