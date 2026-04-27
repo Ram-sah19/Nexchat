@@ -17,6 +17,8 @@ import org.java_websocket.server.WebSocketServer;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import org.bson.types.ObjectId;
+
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,10 @@ public class ChatServer extends WebSocketServer {
     private MongoCollection<Document> usersCollection;
     private MongoCollection<Document> messagesCollection;
     private MongoCollection<Document> friendRequestsCollection;
+    private MongoCollection<Document> callsCollection;
+
+    // callKey(A,B) → { docId, caller, callee, answered, startedAt, answeredAt }
+    private final Map<String, JSONObject> activeCalls = new ConcurrentHashMap<>();
 
     public ChatServer(int port) {
         super(new InetSocketAddress(port));
@@ -51,7 +57,13 @@ public class ChatServer extends WebSocketServer {
         usersCollection = database.getCollection("users");
         messagesCollection = database.getCollection("messages");
         friendRequestsCollection = database.getCollection("friend_requests");
+        callsCollection = database.getCollection("calls");
         System.out.println("Connected to MongoDB from Java Server.");
+    }
+
+    /** Normalised key so (A,B) == (B,A). */
+    private String callKey(String a, String b) {
+        return a.compareTo(b) < 0 ? a + ":" + b : b + ":" + a;
     }
 
     // ─── WebSocket Lifecycle ───────────────────────────────────────────────────
@@ -128,6 +140,28 @@ public class ChatServer extends WebSocketServer {
                 case "friend_removed_notify":
                     // Someone unfriended — tell the other person live
                     handleFriendRemovedNotify(username, payload);
+                    break;
+
+                // ── WebRTC Call Signalling (relay + history recording) ──
+                case "call_offer":
+                    if (handleCallSignal("call_offer", username, payload))
+                        recordCallStart(username, payload);
+                    break;
+                case "call_answer":
+                    handleCallSignal("call_answer", username, payload);
+                    recordCallAnswer(username, payload);
+                    break;
+                case "call_ice":
+                    handleCallSignal("call_ice", username, payload);
+                    break;
+                case "call_ended":
+                    handleCallSignalNoFriendCheck("call_ended", username, payload);
+                    recordCallEnd(username, payload);
+                    break;
+
+                // ── Call History ─────────────────────────────────────────
+                case "fetch_call_history":
+                    handleFetchCallHistory(username, conn, payload, req.optString("reqId"));
                     break;
 
                 default:
@@ -369,6 +403,175 @@ public class ChatServer extends WebSocketServer {
             targetConn.send(msg.toString());
             System.out.println("LIVE: unfriend relayed " + remover + " → " + to);
         }
+    }
+
+    // ─── WebRTC Call Signal Relay ──────────────────────────────────────────────
+
+    /**
+     * Generic relay for call_offer / call_answer / call_ice.
+     * Requires an active friendship — blocks calls between strangers.
+     *
+     * The payload must contain a "to" field with the target username.
+     * We add a "from" field so the receiver knows who sent it.
+     */
+    private boolean handleCallSignal(String signalType, String sender, JSONObject payload) {
+        String to = payload.optString("to", "");
+        if (to.isEmpty()) return false;
+
+        if (!areFriends(sender, to)) {
+            JSONObject err = new JSONObject();
+            err.put("type", "error");
+            JSONObject ep = new JSONObject();
+            ep.put("message", "You must be friends to call " + to);
+            err.put("payload", ep);
+            WebSocket senderConn = activeUsers.get(sender);
+            if (senderConn != null && senderConn.isOpen()) senderConn.send(err.toString());
+            return false;
+        }
+
+        WebSocket targetConn = activeUsers.get(to);
+        if (targetConn == null || !targetConn.isOpen()) {
+            WebSocket senderConn = activeUsers.get(sender);
+            if (senderConn != null && senderConn.isOpen()) {
+                JSONObject err = new JSONObject();
+                err.put("type", "error");
+                JSONObject ep = new JSONObject();
+                ep.put("message", to + " is not online right now.");
+                err.put("payload", ep);
+                senderConn.send(err.toString());
+            }
+            return false;
+        }
+
+        JSONObject relay = new JSONObject();
+        relay.put("type", signalType);
+        payload.put("from", sender);
+        relay.put("payload", payload);
+        targetConn.send(relay.toString());
+        System.out.println("CALL RELAY [" + signalType + "]: " + sender + " → " + to);
+        return true;
+    }
+
+    /**
+     * Relay for call_ended — skips the friends check so that a declined/cancelled
+     * call can still reach the other side even in edge cases.
+     */
+    private void handleCallSignalNoFriendCheck(String signalType, String sender, JSONObject payload) {
+        String to = payload.optString("to", "");
+        if (to.isEmpty()) return;
+
+        WebSocket targetConn = activeUsers.get(to);
+        if (targetConn != null && targetConn.isOpen()) {
+            JSONObject relay = new JSONObject();
+            relay.put("type", signalType);
+            payload.put("from", sender);
+            relay.put("payload", payload);
+            targetConn.send(relay.toString());
+            System.out.println("CALL RELAY [" + signalType + "]: " + sender + " → " + to);
+        }
+    }
+
+    // ─── Call History Recording ────────────────────────────────────────────────────────
+
+    /** Insert a new call record with status "ringing". */
+    private void recordCallStart(String caller, JSONObject payload) {
+        String callee   = payload.optString("to", "");
+        boolean isVideo = payload.optBoolean("withVideo", false);
+        long startedAt  = System.currentTimeMillis();
+
+        Document doc = new Document()
+            .append("caller",    caller)
+            .append("callee",    callee)
+            .append("type",      isVideo ? "video" : "voice")
+            .append("status",    "ringing")
+            .append("startedAt", startedAt)
+            .append("duration",  0);
+        callsCollection.insertOne(doc);
+
+        JSONObject state = new JSONObject();
+        state.put("docId",     doc.getObjectId("_id").toHexString());
+        state.put("caller",    caller);
+        state.put("callee",    callee);
+        state.put("answered",  false);
+        state.put("startedAt", startedAt);
+        activeCalls.put(callKey(caller, callee), state);
+        System.out.println("CALL RECORD [start]: " + caller + " → " + callee);
+    }
+
+    /** Mark the call as answered. */
+    private void recordCallAnswer(String callee, JSONObject payload) {
+        String caller  = payload.optString("to", "");
+        JSONObject state = activeCalls.get(callKey(caller, callee));
+        if (state == null) return;
+
+        long answeredAt = System.currentTimeMillis();
+        state.put("answered",   true);
+        state.put("answeredAt", answeredAt);
+        callsCollection.updateOne(
+            Filters.eq("_id", new ObjectId(state.getString("docId"))),
+            Updates.combine(Updates.set("status", "in_progress"),
+                            Updates.set("answeredAt", answeredAt))
+        );
+        System.out.println("CALL RECORD [answered]: " + caller + " ↔ " + callee);
+    }
+
+    /** Finalise the call: calculate duration, set status to completed or missed. */
+    private void recordCallEnd(String sender, JSONObject payload) {
+        String other   = payload.optString("to", "");
+        JSONObject state = activeCalls.remove(callKey(sender, other));
+        if (state == null) return;
+
+        long   endedAt  = System.currentTimeMillis();
+        boolean answered = state.optBoolean("answered", false);
+        int    duration = 0;
+        String status;
+
+        if (answered) {
+            long answeredAt = state.optLong("answeredAt", endedAt);
+            duration = (int) ((endedAt - answeredAt) / 1000);
+            status   = "completed";
+        } else {
+            status = "missed";
+        }
+
+        callsCollection.updateOne(
+            Filters.eq("_id", new ObjectId(state.getString("docId"))),
+            Updates.combine(Updates.set("status",   status),
+                            Updates.set("endedAt",  endedAt),
+                            Updates.set("duration", duration))
+        );
+        System.out.println("CALL RECORD [end]: " + status + " (" + duration + "s)");
+    }
+
+    /** Returns all calls between two users, sorted oldest-first. */
+    private void handleFetchCallHistory(String username, WebSocket conn,
+                                        JSONObject payload, String reqId) {
+        String withUser = payload.optString("withUser", "");
+        List<Document> docs = new ArrayList<>();
+        callsCollection.find(
+            Filters.or(
+                Filters.and(Filters.eq("caller", username), Filters.eq("callee", withUser)),
+                Filters.and(Filters.eq("caller", withUser), Filters.eq("callee", username))
+            )
+        ).sort(Sorts.ascending("startedAt")).into(docs);
+
+        JSONArray history = new JSONArray();
+        for (Document d : docs) {
+            JSONObject c = new JSONObject();
+            c.put("caller",    d.getString("caller"));
+            c.put("callee",    d.getString("callee"));
+            c.put("type",      d.getString("type"));
+            c.put("status",    d.getString("status"));
+            c.put("duration",  d.getInteger("duration", 0));
+            c.put("startedAt", d.getLong("startedAt"));
+            history.put(c);
+        }
+
+        JSONObject msg = new JSONObject();
+        msg.put("type",    "call_history_response");
+        msg.put("reqId",   reqId);
+        msg.put("payload", history);
+        conn.send(msg.toString());
     }
 
     // ─── Error / Start ─────────────────────────────────────────────────────────

@@ -35,12 +35,15 @@ const authView    = new AuthView();
 const sidebarView = new SidebarView();
 const chatView    = new ChatView();
 const toastView   = new ToastView();
+const callView    = new CallView();
 
 // =============================================================================
 // CONTROLLERS — orchestration; wired after construction to break circular deps
 // =============================================================================
 
 const socketCtrl = new SocketController(chatModel, { WS_URL });
+
+const callCtrl = new CallController(authModel, callView, toastView);
 
 const chatCtrl = new ChatController(
   authModel, chatModel, userModel,
@@ -63,7 +66,8 @@ const authCtrl = new AuthController(
 // =============================================================================
 // POST-CONSTRUCTION WIRING — resolves circular dependencies
 // =============================================================================
-socketCtrl.wire({ chatCtrl, friendCtrl, authCtrl, userModel, authModel, sidebarView, chatView, toastView });
+socketCtrl.wire({ chatCtrl, friendCtrl, authCtrl, callCtrl, userModel, authModel, sidebarView, chatView, toastView });
 chatCtrl.wire(socketCtrl, friendCtrl);
 friendCtrl.wire(socketCtrl, chatCtrl);
 authCtrl.wire(socketCtrl, chatCtrl, friendCtrl);
+callCtrl.wire(socketCtrl);

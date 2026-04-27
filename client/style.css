@@ -875,3 +875,416 @@ html, body {
 .toast-show  { opacity: 1; transform: translateY(0); }
 .toast-info  { background: rgba(99, 102, 241, 0.84);  border: 1px solid rgba(139,120,248,0.35); }
 .toast-error { background: rgba(220, 38, 38, 0.84);   border: 1px solid rgba(239,68,68,0.35); }
+
+/* =====================================================================
+   CALL — Header Buttons
+   ===================================================================== */
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.call-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  font-size: 17px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.call-btn:hover {
+  background: rgba(52, 211, 153, 0.22);
+  transform: scale(1.08);
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.35);
+}
+
+/* =====================================================================
+   CALL — Incoming Banner
+   ===================================================================== */
+#incoming-call-banner {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-120px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: rgba(15, 13, 11, 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  border-radius: 22px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(52,211,153,0.12);
+  min-width: 320px;
+  max-width: 420px;
+}
+
+/* Slide in animation */
+#incoming-call-banner.call-banner-in {
+  animation: bannerSlideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes bannerSlideIn {
+  from { transform: translateX(-50%) translateY(-120px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0);      opacity: 1; }
+}
+
+/* Avatar with ring pulse */
+.incoming-call-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.incoming-call-avatar i {
+  font-size: 44px;
+  color: var(--accent);
+  display: block;
+}
+
+.call-ring-pulse {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(52, 211, 153, 0.5);
+  animation: ringPulse 1.4s ease-out infinite;
+}
+
+@keyframes ringPulse {
+  0%   { transform: scale(0.9);  opacity: 1; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* Banner info */
+.incoming-call-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.incoming-caller-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.incoming-call-type {
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+/* Accept / decline */
+.incoming-call-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.call-accept-btn,
+.call-decline-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.call-accept-btn {
+  background: linear-gradient(135deg, #34d399, #059669);
+  color: white;
+  box-shadow: 0 4px 18px rgba(52,211,153,0.45);
+}
+
+.call-accept-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(52,211,153,0.6);
+}
+
+.call-decline-btn {
+  background: linear-gradient(135deg, #f87171, #dc2626);
+  color: white;
+  box-shadow: 0 4px 18px rgba(239,68,68,0.4);
+}
+
+.call-decline-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(239,68,68,0.55);
+}
+
+/* =====================================================================
+   CALL — Active Call Overlay
+   ===================================================================== */
+#call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: #080604;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#call-overlay.call-overlay-in {
+  animation: overlayFadeIn 0.35s ease both;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Remote full-screen video */
+#remote-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+  opacity: 0.95;
+}
+
+/* When not video mode, show a nice radial gradient bg */
+#call-overlay:not(.video-mode) #remote-video {
+  display: none;
+}
+
+#call-overlay:not(.video-mode) {
+  background: radial-gradient(ellipse 70% 60% at 50% 40%,
+    rgba(155, 143, 245, 0.14) 0%, transparent 65%),
+    #080604;
+}
+
+/* Top info bar */
+.call-top-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 28px 32px 0;
+}
+
+.call-peer-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.call-avatar-wrapper i {
+  font-size: 52px;
+  color: var(--accent);
+  filter: drop-shadow(0 0 24px rgba(155,143,245,0.5));
+}
+
+.call-peer-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.4px;
+}
+
+.call-status-text {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+.call-timer {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+/* Local PiP */
+.local-pip {
+  position: absolute;
+  bottom: 120px;
+  right: 24px;
+  width: 140px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,0.15);
+  z-index: 10;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+  background: #111;
+}
+
+#call-overlay:not(.video-mode) .local-pip {
+  display: none;
+}
+
+/* Controls bar */
+.call-controls {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 28px;
+  background: rgba(255,255,255,0.07);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 60px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+.call-ctrl-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 14px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+  font-size: 22px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  position: relative;
+}
+
+.call-ctrl-btn span {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-sub);
+  position: absolute;
+  bottom: -18px;
+  white-space: nowrap;
+}
+
+.call-ctrl-btn:hover {
+  background: rgba(255,255,255,0.18);
+  transform: scale(1.06);
+}
+
+/* Muted / camera-off active state */
+.call-ctrl-btn.active {
+  background: rgba(155, 143, 245, 0.22);
+  border-color: rgba(155, 143, 245, 0.45);
+  color: var(--accent);
+}
+
+/* Hang up — always red */
+.hangup-btn {
+  background: linear-gradient(135deg, #f87171, #dc2626) !important;
+  border-color: rgba(239,68,68,0.4) !important;
+  color: white !important;
+  box-shadow: 0 4px 20px rgba(239,68,68,0.4);
+}
+
+.hangup-btn:hover {
+  box-shadow: 0 6px 28px rgba(239,68,68,0.6) !important;
+}
+
+/* =====================================================================
+   CALL HISTORY BUBBLES (WhatsApp-style inline call log)
+   ===================================================================== */
+.call-record-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: center;
+  padding: 9px 16px;
+  margin: 8px auto;
+  background: rgba(255, 248, 238, 0.055);
+  border: 1px solid rgba(255, 248, 238, 0.08);
+  border-radius: 50px;
+  max-width: 280px;
+  animation: callBubbleIn 0.3s ease both;
+  cursor: default;
+}
+
+@keyframes callBubbleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Icon circle */
+.call-record-icon {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.14);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #34d399;
+  font-size: 15px;
+}
+
+.call-record-icon.missed {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.25);
+  color: #f87171;
+}
+
+/* Small direction arrow — bottom-right corner of icon */
+.call-dir-arrow {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  font-size: 10px !important;
+  background: var(--bg);
+  border-radius: 50%;
+  padding: 1px;
+  line-height: 1;
+}
+
+/* Text */
+.call-record-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.call-record-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.call-record-title.missed {
+  color: #f87171;
+}
+
+.call-record-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+

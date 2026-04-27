@@ -145,17 +145,40 @@ class ChatController {
       }
     }
 
-    // Fetch and decrypt history
+    // Fetch messages AND call history in parallel
+    let messages = [], callHistory = [];
     try {
-      const messages = await this.socketCtrl.send('fetch_history', { withUser: username }, true);
-      for (const msg of messages) {
+      [messages, callHistory] = await Promise.all([
+        this.socketCtrl.send('fetch_history',      { withUser: username }, true),
+        this.socketCtrl.send('fetch_call_history', { withUser: username }, true).catch(() => [])
+      ]);
+    } catch (e) {
+      console.error('[Chat] Failed to fetch history:', e);
+      return;
+    }
+
+    // Build merged timeline sorted by timestamp
+    const timeline = [];
+    for (const msg of (messages || [])) {
+      timeline.push({ kind: 'message', ts: msg.timestamp, data: msg });
+    }
+    for (const call of (Array.isArray(callHistory) ? callHistory : [])) {
+      timeline.push({ kind: 'call', ts: call.startedAt, data: call });
+    }
+    timeline.sort((a, b) => a.ts - b.ts);
+
+    // Render the merged timeline
+    for (const item of timeline) {
+      if (item.kind === 'call') {
+        this.chatView.appendCallRecord(item.data, this.authModel.username);
+      } else {
+        const msg = item.data;
         try {
           const text = await decryptMessage(this.chatModel.getSharedKey(username), msg.ciphertext, msg.iv);
           const isMine = msg.sender === this.authModel.username;
           this.chatView.appendMessage(isMine ? 'You' : msg.sender, text, isMine ? 'sent' : 'recv');
         } catch (err) {
           const isMine = msg.sender === this.authModel.username;
-          console.error('[Chat] History decrypt failed:', err.name);
           this.chatView.appendMessage(
             isMine ? 'You' : msg.sender,
             '[Message could not be decrypted]',
@@ -163,10 +186,9 @@ class ChatController {
           );
         }
       }
-    } catch (e) {
-      console.error('[Chat] Failed to fetch history:', e);
     }
   }
+
 
   // ─── Send Message ─────────────────────────────────────────────────────────────
 

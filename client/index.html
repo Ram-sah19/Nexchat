@@ -95,9 +95,17 @@
           <div class="avatar"><i class="ph-fill ph-user-circle"></i></div>
           <h3 id="chat-with-header">Select a friend to chat</h3>
         </div>
-        <button id="verify-contact-btn" class="small-btn hidden">
-          <i class="ph-bold ph-fingerprint"></i> Verify Identity
-        </button>
+        <div class="chat-header-actions">
+          <button id="voice-call-btn" class="call-btn hidden" title="Voice Call">
+            <i class="ph-fill ph-phone"></i>
+          </button>
+          <button id="video-call-btn" class="call-btn hidden" title="Video Call">
+            <i class="ph-fill ph-video-camera"></i>
+          </button>
+          <button id="verify-contact-btn" class="small-btn hidden">
+            <i class="ph-bold ph-fingerprint"></i> Verify Identity
+          </button>
+        </div>
       </div>
       
       <div class="message-list" id="message-list">
@@ -117,7 +125,7 @@
     </div>
   </div>
 
-  <!-- ─── Verify Identity Modal ───────────────────────────────────────────── -->
+  <!-- ─── Verify Identity Modal ─────────────────────────────────────────── -->
   <div id="verify-modal" class="hidden modal-overlay">
     <div class="modal card">
       <div class="modal-header">
@@ -139,6 +147,65 @@
     </div>
   </div>
 
+  <!-- ─── Incoming Call Banner ─────────────────────────────────────────── -->
+  <div id="incoming-call-banner" class="hidden">
+    <div class="incoming-call-avatar">
+      <i class="ph-fill ph-user-circle"></i>
+      <span class="call-ring-pulse"></span>
+    </div>
+    <div class="incoming-call-info">
+      <span id="incoming-caller-name" class="incoming-caller-name"></span>
+      <span id="incoming-call-type" class="incoming-call-type"></span>
+    </div>
+    <div class="incoming-call-actions">
+      <button id="accept-call-btn" class="call-accept-btn" title="Accept">
+        <i class="ph-fill ph-phone"></i>
+      </button>
+      <button id="decline-call-btn" class="call-decline-btn" title="Decline">
+        <i class="ph-fill ph-phone-x"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ─── Active Call Overlay ──────────────────────────────────────────── -->
+  <div id="call-overlay" class="hidden">
+    <!-- Remote full-screen video -->
+    <video id="remote-video" autoplay playsinline></video>
+
+    <!-- Top bar: peer info + timer -->
+    <div class="call-top-bar">
+      <div class="call-peer-info">
+        <div class="call-avatar-wrapper">
+          <i class="ph-fill ph-user-circle"></i>
+        </div>
+        <div>
+          <div id="call-peer-name" class="call-peer-name"></div>
+          <div id="call-status" class="call-status-text"></div>
+        </div>
+      </div>
+      <div id="call-timer" class="call-timer">00:00</div>
+    </div>
+
+    <!-- Local PiP video -->
+    <video id="local-video" autoplay playsinline muted class="local-pip"></video>
+
+    <!-- Controls -->
+    <div class="call-controls">
+      <button id="call-mute-btn" class="call-ctrl-btn" title="Mute">
+        <i class="ph-fill ph-microphone"></i>
+        <span>Mute</span>
+      </button>
+      <button id="call-camera-btn" class="call-ctrl-btn hidden" title="Turn camera off">
+        <i class="ph-fill ph-video-camera"></i>
+        <span>Camera</span>
+      </button>
+      <button id="call-hangup-btn" class="call-ctrl-btn hangup-btn" title="Hang up">
+        <i class="ph-fill ph-phone-x"></i>
+        <span>End</span>
+      </button>
+    </div>
+  </div>
+
   <!-- Crypto utilities (global helpers used by ChatController) -->
   <script src="crypto.js"></script>
 
@@ -152,12 +219,14 @@
   <script src="views/ToastView.js"></script>
   <script src="views/ChatView.js"></script>
   <script src="views/SidebarView.js"></script>
+  <script src="views/CallView.js"></script>
 
   <!-- ── Controllers (orchestration, loaded in dependency order) ── -->
   <script src="controllers/SocketController.js"></script>
   <script src="controllers/FriendController.js"></script>
   <script src="controllers/ChatController.js"></script>
   <script src="controllers/AuthController.js"></script>
+  <script src="controllers/CallController.js"></script>
 
   <!-- ── Entry Point (creates instances + wires dependencies) ── -->
   <script src="app.js"></script>

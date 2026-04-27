@@ -19,6 +19,7 @@ class SocketController {
     this.chatCtrl   = null;
     this.friendCtrl = null;
     this.authCtrl   = null;
+    this.callCtrl   = null;
     this.userModel  = null;
     this.authModel  = null;
     this.sidebarView = null;
@@ -27,10 +28,11 @@ class SocketController {
   }
 
   /** Inject cross-controller dependencies after all instances are created. */
-  wire({ chatCtrl, friendCtrl, authCtrl, userModel, authModel, sidebarView, chatView, toastView }) {
+  wire({ chatCtrl, friendCtrl, authCtrl, callCtrl, userModel, authModel, sidebarView, chatView, toastView }) {
     this.chatCtrl    = chatCtrl;
     this.friendCtrl  = friendCtrl;
     this.authCtrl    = authCtrl;
+    this.callCtrl    = callCtrl;
     this.userModel   = userModel;
     this.authModel   = authModel;
     this.sidebarView = sidebarView;
@@ -187,6 +189,23 @@ class SocketController {
         // ── Server error (e.g. blocked non-friend message) ──────────
         case 'error':
           this.toastView.show(`⚠️ ${payload.message}`, 'error');
+          break;
+
+        // ── WebRTC Call Signalling (relayed by Java) ─────────────────
+        case 'call_offer':
+          await this.callCtrl.handleIncomingOffer(payload);
+          break;
+
+        case 'call_answer':
+          await this.callCtrl.handleAnswer(payload);
+          break;
+
+        case 'call_ice':
+          await this.callCtrl.handleIceCandidate(payload);
+          break;
+
+        case 'call_ended':
+          this.callCtrl.handleRemoteHangup(payload);
           break;
 
         default:
