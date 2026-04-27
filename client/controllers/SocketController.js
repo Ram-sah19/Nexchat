@@ -159,6 +159,11 @@ class SocketController {
           await this.chatCtrl.handleIncomingMessage(payload);
           break;
 
+        // ── Typing indicator ─────────────────────────────────────────────
+        case 'typing':
+          this.chatCtrl.handleTypingEvent(payload);
+          break;
+
         // ── Friend System — live relay events ───────────────────────
         case 'new_friend_request':
           this.userModel.addPendingReceived(payload.from);
@@ -206,6 +211,17 @@ class SocketController {
 
         case 'call_ended':
           this.callCtrl.handleRemoteHangup(payload);
+          break;
+
+        // ── Message Receipt Ticks ─────────────────────────────────────
+        case 'message_delivered':
+          // payload.from = the person who received and delivered our message
+          this.chatView.updateTicks(payload.from, 'delivered');
+          break;
+
+        case 'message_seen':
+          // payload.from = the person who opened the chat and saw our messages
+          this.chatView.updateTicks(payload.from, 'seen');
           break;
 
         default:

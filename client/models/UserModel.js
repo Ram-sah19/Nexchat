@@ -4,11 +4,13 @@
  */
 class UserModel {
   constructor() {
-    this.myFriends          = [];   // accepted friends (usernames)
-    this.pendingSent        = [];   // usernames we sent requests to
-    this.pendingReceived    = [];   // [{ sender }] requests received by us
-    this.allRegisteredUsers = [];   // everyone in the system
-    this.onlineUserSet      = new Set(); // currently connected users
+    this.myFriends          = [];
+    this.pendingSent        = [];
+    this.pendingReceived    = [];
+    this.allRegisteredUsers = [];
+    this.onlineUserSet      = new Set();
+    this.unreadCounts       = {};   // username → number of unread messages
+    this.typingUsers        = new Set(); // usernames currently typing
   }
 
   /** Bulk-replace state from GET /friends/status response. */
@@ -51,11 +53,25 @@ class UserModel {
     this.pendingReceived = this.pendingReceived.filter(r => r.sender !== sender);
   }
 
+  // ─── Unread Counts ───────────────────────────────────────────────────────────
+  incrementUnread(u) { this.unreadCounts[u] = (this.unreadCounts[u] || 0) + 1; }
+  clearUnread(u)     { delete this.unreadCounts[u]; }
+  getUnread(u)       { return this.unreadCounts[u] || 0; }
+  hasUnread(u)       { return (this.unreadCounts[u] || 0) > 0; }
+
+  // ─── Typing ────────────────────────────────────────────────────────────────
+  setTyping(u, isTyping) {
+    isTyping ? this.typingUsers.add(u) : this.typingUsers.delete(u);
+  }
+  isTyping(u) { return this.typingUsers.has(u); }
+
   reset() {
     this.myFriends = [];
     this.pendingSent = [];
     this.pendingReceived = [];
     this.allRegisteredUsers = [];
     this.onlineUserSet.clear();
+    this.unreadCounts = {};
+    this.typingUsers.clear();
   }
 }

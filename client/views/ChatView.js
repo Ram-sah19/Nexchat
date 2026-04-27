@@ -20,16 +20,24 @@ class ChatView {
    * @param {string}         text    — plaintext content
    * @param {'sent'|'recv'}  type    — alignment + colour
    */
-  appendMessage(sender, text, type) {
+  /**
+   * Appends a message bubble.
+   * @param {string}         sender
+   * @param {string}         text
+   * @param {'sent'|'recv'}  type
+   * @param {object}         [opts]  { to, status } — for sent ticks
+   */
+  appendMessage(sender, text, type, opts = {}) {
     const lastMsg     = this.messageList.lastElementChild;
-    const isContinued = lastMsg && lastMsg.dataset.sender === sender;
+    const isContinued = lastMsg && lastMsg.dataset.sender === sender
+                        && lastMsg.classList.contains('msg-wrapper');
 
     const wrapper = document.createElement('div');
-    wrapper.className    = `msg-wrapper ${type}`;
+    wrapper.className      = `msg-wrapper ${type}`;
     wrapper.dataset.sender = sender;
     if (isContinued) wrapper.classList.add('msg-continued');
 
-    // Show sender name only on the first message of a received group
+    // Sender label — only on first bubble of a received group
     if (!isContinued && type === 'recv') {
       const info = document.createElement('div');
       info.className   = 'msg-info';
@@ -38,12 +46,59 @@ class ChatView {
     }
 
     const bubble = document.createElement('div');
-    bubble.className   = 'msg-bubble';
-    bubble.textContent = text;
-    wrapper.appendChild(bubble);
+    bubble.className = 'msg-bubble';
 
+    const textSpan = document.createElement('span');
+    textSpan.className   = 'msg-text';
+    textSpan.textContent = text;
+    bubble.appendChild(textSpan);
+
+    // Meta row: time + tick
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+
+    const timeEl = document.createElement('span');
+    timeEl.className   = 'msg-time';
+    timeEl.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    meta.appendChild(timeEl);
+
+    // Tick for sent messages
+    if (type === 'sent' && opts.to) {
+      const tick = document.createElement('span');
+      tick.className      = 'msg-tick';
+      tick.dataset.to     = opts.to;
+      const status        = opts.status || 'sent';
+      tick.dataset.status = status;
+      tick.innerHTML      = this._tickIcon(status);
+      meta.appendChild(tick);
+    }
+
+    bubble.appendChild(meta);
+    wrapper.appendChild(bubble);
     this.messageList.appendChild(wrapper);
     this.messageList.scrollTop = this.messageList.scrollHeight;
+  }
+
+  /**
+   * Upgrade tick status for all sent messages to `peerUsername`.
+   * Status order: sent < delivered < seen
+   */
+  updateTicks(peerUsername, status) {
+    const order = { sent: 0, delivered: 1, seen: 2 };
+    this.messageList
+      .querySelectorAll(`.msg-tick[data-to="${peerUsername}"]`)
+      .forEach(tick => {
+        if (order[status] > order[tick.dataset.status || 'sent']) {
+          tick.dataset.status = status;
+          tick.innerHTML      = this._tickIcon(status);
+        }
+      });
+  }
+
+  _tickIcon(status) {
+    if (status === 'seen')      return '<i class="ph-fill ph-checks msg-tick-seen"></i>';
+    if (status === 'delivered') return '<i class="ph-fill ph-checks"></i>';
+    return '<i class="ph-fill ph-check"></i>';   // sent
   }
 
   clearMessages() {
@@ -71,6 +126,24 @@ class ChatView {
     this.messageInput.disabled = !enabled;
     this.sendBtn.disabled      = !enabled;
     if (enabled) this.messageInput.focus();
+  }
+
+  /** Show the "X is typing…" indicator. */
+  showTyping(username) {
+    const el = document.getElementById('typing-indicator');
+    if (!el) return;
+    el.innerHTML =
+      `<span class="typing-dots"><span></span><span></span><span></span></span>` +
+      `<span style="margin-left:8px;">${username} is typing…</span>`;
+    el.classList.remove('hidden');
+  }
+
+  /** Hide the typing indicator. */
+  hideTyping() {
+    const el = document.getElementById('typing-indicator');
+    if (!el) return;
+    el.innerHTML = '';
+    el.classList.add('hidden');
   }
 
   getMessageText() { return this.messageInput.value.trim(); }

@@ -130,11 +130,30 @@ class SidebarView {
       li.className = 'friend-item';
       if (u === activeChatUser) li.classList.add('active');
 
-      li.appendChild(this._makeDot(userModel.isOnline(u)));
+      // Status dot OR animated typing dots
+      if (userModel.isTyping(u)) {
+        const typingDot = document.createElement('span');
+        typingDot.className = 'typing-dot-sidebar';
+        typingDot.innerHTML =
+          '<span></span><span></span><span></span>';
+        li.appendChild(typingDot);
+      } else {
+        li.appendChild(this._makeDot(userModel.isOnline(u)));
+      }
 
       const name = document.createElement('span');
       name.textContent = u;
+      name.style.flex  = '1';
       li.appendChild(name);
+
+      // Unread badge
+      const count = userModel.getUnread(u);
+      if (count > 0 && u !== activeChatUser) {
+        const badge = document.createElement('span');
+        badge.className   = 'unread-badge';
+        badge.textContent = count > 99 ? '99+' : count;
+        li.appendChild(badge);
+      }
 
       li.onclick = () => callbacks.onSelect(u);
       this.friendsListEl.appendChild(li);
