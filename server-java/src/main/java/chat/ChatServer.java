@@ -141,12 +141,22 @@ public class ChatServer extends WebSocketServer {
     // ─── Chat Handlers ─────────────────────────────────────────────────────────
     private void handleJoin(String username, WebSocket conn, JSONObject payload) {
         String publicKey = payload.getJSONObject("publicKey").toString();
+        boolean isNewKey = payload.optBoolean("isNewKey", false);
+
         activeUsers.put(username, conn);
-        usersCollection.updateOne(
-            Filters.eq("username", username),
-            Updates.set("publicKey", publicKey)
-        );
-        System.out.println(username + " registered public key for session.");
+
+        // Only overwrite the stored public key when the client generated a fresh pair.
+        // For existing sessions the key is unchanged — updating would break old message decryption.
+        if (isNewKey) {
+            usersCollection.updateOne(
+                Filters.eq("username", username),
+                Updates.set("publicKey", publicKey)
+            );
+            System.out.println(username + " registered NEW public key for session.");
+        } else {
+            System.out.println(username + " resumed session with existing public key.");
+        }
+
         broadcastUserList();
         broadcastOnlineUsers();
     }

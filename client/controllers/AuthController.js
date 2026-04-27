@@ -79,7 +79,7 @@ class AuthController {
       this.authModel.setAuth(data.token, data.username);
 
       // 2. Restore or generate crypto keys
-      await this.chatCtrl.initCrypto(
+      const isNewKey = await this.chatCtrl.initCrypto(
         password,
         data.publicKey          || null,
         data.encryptedPrivateKey || null
@@ -89,7 +89,8 @@ class AuthController {
       await this.friendCtrl.loadFriendStatus();
 
       // 4. Connect WebSocket (join event fires on open)
-      this.socketCtrl.connect(data.token, this.chatModel.exportedPublicKey);
+      //    Pass isNewKey so Java only updates the stored public key when necessary.
+      this.socketCtrl.connect(data.token, this.chatModel.exportedPublicKey, isNewKey);
 
       // 5. Transition UI
       this.authView.showChat();

@@ -63,7 +63,7 @@ class ChatController {
     const storedPub   = localStorage.getItem(`chat_public_key_${u}`);
 
     if (storedPriv && storedPub) {
-      // ① Restore from localStorage
+      // ① Restore from localStorage — key is unchanged, do NOT overwrite server copy
       const pub  = JSON.parse(storedPub);
       const priv = JSON.parse(storedPriv);
       this.chatModel.localKeyPair = {
@@ -71,9 +71,10 @@ class ChatController {
         privateKey: await crypto.subtle.importKey('jwk', priv, ecdhParams, true, ['deriveKey', 'deriveBits'])
       };
       this.chatModel.exportedPublicKey = pub;
+      return false; // existing key — Java must NOT overwrite DB
 
     } else if (serverEncryptedPrivateKey && serverPublicKey) {
-      // ② Restore from server (cross-device)
+      // ② Restore from server (cross-device) — key is unchanged
       const privJwk = await decryptPrivateKey(serverEncryptedPrivateKey, password, u);
       this.chatModel.localKeyPair = {
         publicKey:  await importPublicKey(serverPublicKey),
@@ -82,6 +83,7 @@ class ChatController {
       this.chatModel.exportedPublicKey = serverPublicKey;
       localStorage.setItem(`chat_private_key_${u}`, JSON.stringify(privJwk));
       localStorage.setItem(`chat_public_key_${u}`, JSON.stringify(serverPublicKey));
+      return false; // existing key — Java must NOT overwrite DB
 
     } else {
       // ③ Generate fresh key pair (new device / first login)
@@ -92,6 +94,7 @@ class ChatController {
       this.chatModel.exportedPublicKey = pubJwk;
       localStorage.setItem(`chat_private_key_${u}`, JSON.stringify(privJwk));
       localStorage.setItem(`chat_public_key_${u}`, JSON.stringify(pubJwk));
+      return true; // brand-new key — Java MUST update DB
     }
   }
 

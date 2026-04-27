@@ -40,11 +40,13 @@ class SocketController {
 
   // ─── Connection Lifecycle ────────────────────────────────────────────────────
 
-  connect(token, exportedPublicKey) {
+  connect(token, exportedPublicKey, isNewKey = false) {
     this.socket = new WebSocket(`${this.WS_URL}/?token=${token}`);
 
     this.socket.onopen = () => {
-      this.send('join', { publicKey: exportedPublicKey });
+      // Only ask Java to persist the public key to MongoDB when it's brand-new.
+      // Existing sessions keep their stored key so old ciphertexts remain decryptable.
+      this.send('join', { publicKey: exportedPublicKey, isNewKey });
     };
 
     this.socket.onerror = err => {
