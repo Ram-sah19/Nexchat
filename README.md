@@ -381,7 +381,7 @@ pip install -r requirements.txt
 
 **`.env` file** (create in `server-python/`):
 ```env
-MONGO_URI=mongodb://localhost:27017/securechat
+MONGO_URI=mongodburl
 JWT_SECRET=your-secret-key-here
 ```
 
