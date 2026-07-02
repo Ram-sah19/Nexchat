@@ -588,4 +588,4 @@ This project is for educational and demonstration purposes.
 <div align="center">
   <p>Built with ❤️ by <a href="https://github.com/Ram-sah19">Ram-sah19</a></p>
   <p><strong>NexChat</strong> — Encrypted · Social · Real-Time · WebRTC · MVC</p>
-</div>
+</div>    
