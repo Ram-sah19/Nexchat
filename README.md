@@ -1,7 +1,7 @@
 # 🔐 NexChat — End-to-End Encrypted Chat Application
 
 > A production-ready, fully End-to-End Encrypted (E2EE) real-time chat system built with **Python (Flask)**, **Java (WebSocket)**, and **vanilla JavaScript** — powered by **ECDH + AES-GCM** cryptography via the browser's native WebCrypto API. Features real-time **voice & video calling** (WebRTC), **call history**, **typing indicators**, **unread badges**, **message delivery ticks**, and a complete **friend system** — all following a clean **MVC architecture**.
-
+   
 [![GitHub](https://img.shields.io/badge/GitHub-Nexchat-181717?style=flat-square&logo=github)](https://github.com/Ram-sah19/Nexchat)
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Java](https://img.shields.io/badge/Java-11+-ED8B00?style=flat-square&logo=java)](https://www.java.com/)
